@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive AI Video Platform Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Harmony -->
+    <!-- Application Structure Plan: The application is designed as a user-centric, multi-faceted dashboard. The core idea is to move away from the report's linear structure and empower users to find the right tool for their specific needs quickly. The flow is: 1. User selects a primary persona (Business, Creator, Experimental) which immediately filters the platform list based on the report's recommendations. This is the most critical entry point for usability. 2. Users can apply secondary filters for key features (Avatars, Voice Cloning) to further refine the results. 3. Platforms are displayed as interactive cards in a responsive grid, showing key info at a glance. Clicking a card reveals a modal with detailed qualitative analysis from the report (progressive disclosure). 4. A "Head-to-Head" comparison section allows users to select up to three platforms to visualize their capabilities on dynamic charts (a bubble chart for cost vs. length and a radar chart for feature strengths). This structure is chosen to be task-oriented, interactive, and to turn raw data into actionable insights, guiding the user to a decision rather than just presenting information. -->
+    <!-- Visualization & Content Choices: Report data is transformed into interactive elements. The two main tables are represented by a dynamic, filterable card grid instead of static tables for better usability. Report Info: Pricing and Max Video Length -> Goal: Compare, find value -> Viz: Bubble Chart (Chart.js) -> Interaction: Hover for details, filtered by user selection -> Justification: Shows the relationship between cost and a key feature (length) across competitors. The logarithmic scale handles the wide data range effectively. Report Info: Key Features (Avatars, Cloning, etc.) -> Goal: Compare strengths/weaknesses -> Viz: Radar Chart (Chart.js) -> Interaction: Dynamically updates with platform selections -> Justification: Excellent for multi-dimensional comparison, making it easy to see which platforms are well-rounded or specialized. Report Info: Qualitative descriptions and recommendations -> Goal: Inform, Guide -> Presentation: Placed in modals and contextual recommendation banners -> Interaction: Click-to-reveal details, persona selection triggers banner -> Justification: Avoids information overload and makes recommendations actionable and context-aware. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 320px; max-height: 400px; }
+        @media (min-width: 768px) { .chart-container { height: 400px; } }
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        .modal-content {
+            transition: transform 0.25s ease;
+        }
+        .active-filter {
+            background-color: #0d9488 !important; /* teal-700 */
+            color: white !important;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+         .platform-checkbox:checked + label {
+            border-color: #0d9488;
+            background-color: #f0fdfa;
+            color: #134e4a;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800">
+
+    <div id="app" class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-teal-800 mb-2">AI Video Platform Explorer</h1>
+            <p class="text-lg text-stone-600 max-w-3xl mx-auto">Navigate the world of AI video generation. Find the perfect tool to create compelling, long-form content beyond 10 seconds.</p>
+        </header>
+
+        <section id="filters" class="mb-12 p-6 bg-white rounded-2xl shadow-sm">
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-stone-700 mb-3">1. First, tell us who you are:</h3>
+                <div id="persona-filters" class="flex flex-wrap gap-3">
+                    <button data-persona="all" class="px-4 py-2 text-sm font-medium bg-white border border-stone-300 rounded-full shadow-sm hover:bg-stone-100 transition active-filter">All Platforms</button>
+                    <button data-persona="business" class="px-4 py-2 text-sm font-medium bg-white border border-stone-300 rounded-full shadow-sm hover:bg-stone-100 transition">Business & Enterprise</button>
+                    <button data-persona="creator" class="px-4 py-2 text-sm font-medium bg-white border border-stone-300 rounded-full shadow-sm hover:bg-stone-100 transition">Content Creator & Marketer</button>
+                    <button data-persona="experimental" class="px-4 py-2 text-sm font-medium bg-white border border-stone-300 rounded-full shadow-sm hover:bg-stone-100 transition">Creative & Experimental</button>
+                </div>
+            </div>
+            <div>
+                 <h3 class="text-lg font-semibold text-stone-700 mb-3">2. Now, refine by essential features:</h3>
+                <div id="feature-filters" class="flex flex-wrap gap-4">
+                     <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" data-feature="aiAvatars" class="h-4 w-4 rounded border-stone-300 text-teal-600 focus:ring-teal-500">
+                        <span>AI Avatars</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" data-feature="voiceCloning" class="h-4 w-4 rounded border-stone-300 text-teal-600 focus:ring-teal-500">
+                        <span>Voice Cloning</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" data-feature="collaboration" class="h-4 w-4 rounded border-stone-300 text-teal-600 focus:ring-teal-500">
+                        <span>Collaboration Tools</span>
+                    </label>
+                     <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" data-feature="apiAccess" class="h-4 w-4 rounded border-stone-300 text-teal-600 focus:ring-teal-500">
+                        <span>API Access</span>
+                    </label>
+                </div>
+            </div>
+        </section>
+        
+        <div id="recommendation-banner" class="hidden mb-8 p-4 bg-teal-50 border-l-4 border-teal-500 rounded-r-lg">
+             <p class="text-teal-800"><strong class="font-semibold">Recommendation:</strong> <span id="recommendation-text"></span></p>
+        </div>
+
+        <main id="platform-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16"></main>
+
+        <section id="comparison-section" class="bg-white rounded-2xl shadow-sm p-6 md:p-8 mb-16">
+            <h2 class="text-3xl font-bold text-center text-teal-800 mb-2">Head-to-Head Comparison</h2>
+            <p class="text-center text-stone-600 mb-8 max-w-2xl mx-auto">Select up to 3 platforms from the list above to compare them visually. Check the 'Compare' box on any card.</p>
+            <div id="comparison-content" class="hidden">
+                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                     <div>
+                         <h3 class="text-xl font-semibold text-center mb-4">Cost vs. Max Video Length</h3>
+                         <div class="chart-container">
+                            <canvas id="priceLengthChart"></canvas>
+                         </div>
+                     </div>
+                     <div>
+                         <h3 class="text-xl font-semibold text-center mb-4">Feature Strength Overview</h3>
+                         <div class="chart-container">
+                            <canvas id="featureRadarChart"></canvas>
+                         </div>
+                     </div>
+                 </div>
+            </div>
+             <div id="comparison-placeholder" class="text-center py-12 text-stone-500">
+                <p>Please select at least one platform to start the comparison.</p>
+            </div>
+        </section>
+        
+        <section id="key-considerations" class="bg-white rounded-2xl shadow-sm p-6 md:p-8">
+            <h2 class="text-3xl font-bold text-center text-teal-800 mb-8">Key Considerations For Your Choice</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-center">
+                <div class="p-4">
+                    <div class="text-4xl mb-3 text-teal-600">⚖️</div>
+                    <h3 class="font-semibold text-lg mb-1">Scalability & Volume</h3>
+                    <p class="text-sm text-stone-600">Assess credit systems and pricing tiers. Does the platform grow with your needs? Scrutinize "unlimited" plans for hidden caps.</p>
+                </div>
+                <div class="p-4">
+                     <div class="text-4xl mb-3 text-teal-600">🎨</div>
+                    <h3 class="font-semibold text-lg mb-1">Output Quality & Realism</h3>
+                    <p class="text-sm text-stone-600">Evaluate resolution, frame rate, and realism of avatars and motion. Note the trade-off between top quality and maximum video length.</p>
+                </div>
+                <div class="p-4">
+                     <div class="text-4xl mb-3 text-teal-600">⚙️</div>
+                    <h3 class="font-semibold text-lg mb-1">Customization & Control</h3>
+                    <p class="text-sm text-stone-600">Check for options to upload media, personalize avatars, clone voices, and control styling. How much creative freedom do you need?</p>
+                </div>
+                 <div class="p-4">
+                     <div class="text-4xl mb-3 text-teal-600">🎓</div>
+                    <h3 class="font-semibold text-lg mb-1">Ease of Use</h3>
+                    <p class="text-sm text-stone-600">Many platforms target non-editors with simple interfaces, but advanced features may have a learning curve. Is it intuitive for your skill level?</p>
+                </div>
+                 <div class="p-4">
+                     <div class="text-4xl mb-3 text-teal-600">🔗</div>
+                    <h3 class="font-semibold text-lg mb-1">Integration Potential</h3>
+                    <p class="text-sm text-stone-600">Does it offer API access to fit into your workflow? Can you easily export and optimize videos for various platforms?</p>
+                </div>
+                 <div class="p-4">
+                     <div class="text-4xl mb-3 text-teal-600">💰</div>
+                    <h3 class="font-semibold text-lg mb-1">Pricing Transparency</h3>
+                    <p class="text-sm text-stone-600">Understand the model: credits vs. minutes. Be aware of "generative credits" vs. final video length and check for watermarks or commercial use rights.</p>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <div id="platform-modal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none">
+        <div class="modal-content bg-white w-full max-w-3xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col transform scale-95">
+             <div class="flex justify-between items-center p-5 border-b border-stone-200">
+                <h2 id="modal-title" class="text-2xl font-bold text-teal-800"></h2>
+                <button id="modal-close-btn" class="text-stone-500 hover:text-stone-800 transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div id="modal-body" class="p-6 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const platformsData = [
+                { id: 'synthesia', name: 'Synthesia', persona: 'business', price: 29, length: 250, resolution: 'Studio-quality', aiAvatars: true, voiceCloning: true, multiLanguage: true, collaboration: true, apiAccess: true,
+                  summary: 'Avatar-led videos for enterprise use, with extensive multi-language support.',
+                  details: `
+                    <p class="mb-4">Synthesia is a leading AI video platform designed primarily for enterprise use cases, offering robust capabilities for extended video content. It excels in producing structured, presentation-style videos, such as training modules and internal communications.</p>
+                    <h4 class="font-semibold mb-2">Key Strengths:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Extensive video length up to 250 minutes.</li>
+                        <li>High-quality, lifelike AI avatars with diverse options.</li>
+                        <li>Supports over 140 languages for dialogue and AI dubbing.</li>
+                        <li>Substantial cost and time savings compared to traditional video production.</li>
+                    </ul>
+                    <h4 class="font-semibold mb-2">Limitations:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Not designed for creative or artistic AI videos.</li>
+                        <li>Limited control over avatar gestures and expressions.</li>
+                        <li>Premium features like custom avatars can be costly.</li>
+                    </ul>
+                    <p class="text-sm italic"><strong>Ideal for:</strong> eLearning, corporate training, sales enablement, and global communications.</p>
+                  ` },
+                { id: 'deepbrain', name: 'DeepBrain AI Studios', persona: 'business', price: 24, length: 1000, resolution: '1080p', aiAvatars: true, voiceCloning: true, multiLanguage: true, collaboration: true, apiAccess: true,
+                  summary: 'Robust, all-in-one tool with realistic avatars and unlimited length for enterprises.',
+                  details: `
+                    <p class="mb-4">DeepBrain AI Studios is a comprehensive tool for AI video generation, notable for its capacity to produce long-form content, with unlimited length on its Enterprise plan.</p>
+                    <h4 class="font-semibold mb-2">Key Strengths:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Unlimited video length available on the Enterprise plan.</li>
+                        <li>Over 150 realistic AI avatars.</li>
+                        <li>Strong text-to-speech and voice cloning capabilities.</li>
+                        <li>Collaborative features designed for teams.</li>
+                    </ul>
+                    <h4 class="font-semibold mb-2">Limitations:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Relatively new entrant, could benefit from more brand recognition.</li>
+                        <li>Some users report an inability to precisely customize AI models.</li>
+                        <li>May lack some advanced editing features of traditional software.</li>
+                    </ul>
+                    <p class="text-sm italic"><strong>Ideal for:</strong> Educational videos, AI-powered presentations, how-to guides, and corporate communications.</p>
+                  ` },
+                { id: 'fliki', name: 'Fliki', persona: 'creator', price: 14, length: 40, resolution: '1080p', aiAvatars: false, voiceCloning: true, multiLanguage: true, collaboration: true, apiAccess: true,
+                  summary: 'Transforms text into engaging videos with extensive stock media and voice options.',
+                  details: `
+                    <p class="mb-4">Fliki excels in transforming text into video content, featuring an extensive stock media library and ultra-realistic text-to-speech voices.</p>
+                    <h4 class="font-semibold mb-2">Key Strengths:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Videos up to 40 minutes on the Premium plan.</li>
+                        <li>Extensive library of premium images, video clips, and music.</li>
+                        <li>Over 1000 ultra-realistic voices in 80+ languages.</li>
+                        <li>Effective for repurposing content like blog articles into video format.</li>
+                    </ul>
+                    <h4 class="font-semibold mb-2">Limitations:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Users may experience an initial learning curve.</li>
+                        <li>May lack some of the more robust editing features of dedicated software.</li>
+                    </ul>
+                    <p class="text-sm italic"><strong>Ideal for:</strong> Social media, online courses, marketing materials, and YouTube narrations.</p>
+                  ` },
+                { id: 'invideo', name: 'InVideo AI', persona: 'creator', price: 28, length: 40, resolution: '1080p', aiAvatars: true, voiceCloning: true, multiLanguage: true, collaboration: true, apiAccess: false,
+                  summary: 'User-friendly platform that turns text prompts and blogs into full-length videos.',
+                  details: `
+                    <p class="mb-4">InVideo AI is designed for efficient video creation with a simple drag-and-drop interface, making it accessible for all skill levels. It intelligently suggests relevant media to accompany text.</p>
+                    <h4 class="font-semibold mb-2">Key Strengths:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Supports videos up to 40 minutes.</li>
+                        <li>Excellent text-to-video generation that streamlines production.</li>
+                        <li>Extensive stock media library, including iStock on paid plans.</li>
+                        <li>Real-time collaboration tools for teams.</li>
+                    </ul>
+                    <h4 class="font-semibold mb-2">Limitations:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Users report occasional glitches or vaguely related visuals.</li>
+                        <li>Pricing plans can be complex, distinguishing "AI generation minutes" from final video length.</li>
+                    </ul>
+                    <p class="text-sm italic"><strong>Ideal for:</strong> Social media videos, promotional content, and repurposing blog posts.</p>
+                  ` },
+                { id: 'flexclip', name: 'FlexClip', persona: 'creator', price: 11.99, length: 1000, resolution: '4K', aiAvatars: true, voiceCloning: true, multiLanguage: true, collaboration: false, apiAccess: false,
+                  summary: 'Flexible online editor with unlimited video length on paid plans and broad tools.',
+                  details: `
+                    <p class="mb-4">FlexClip is a highly flexible solution for AI-powered video creation, offering a comprehensive suite of editing tools alongside its AI features.</p>
+                    <h4 class="font-semibold mb-2">Key Strengths:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Unlimited video length on paid plans is a major advantage.</li>
+                        <li>User-friendly drag-and-drop interface suitable for beginners.</li>
+                        <li>Extensive library of templates and stock media.</li>
+                        <li>High-quality 4K output available on the Business plan.</li>
+                    </ul>
+                    <h4 class="font-semibold mb-2">Limitations:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Free version is limited for longer projects.</li>
+                        <li>As a cloud-based service, it may work slowly with very large files.</li>
+                    </ul>
+                    <p class="text-sm italic"><strong>Ideal for:</strong> Promotional videos, social media, explainer videos, and educational content.</p>
+                  ` },
+                { id: 'wavevideo', name: 'Wave.video', persona: 'creator', price: 16, length: 120, resolution: '1080p', aiAvatars: false, voiceCloning: true, multiLanguage: true, collaboration: true, apiAccess: false,
+                  summary: 'All-in-one video marketing platform with editing, live streaming, and hosting.',
+                  details: `
+                    <p class="mb-4">Wave.video is a comprehensive video marketing platform. AI generation is one component within a broader suite that includes a live streaming studio, video editor, and hosting.</p>
+                    <h4 class="font-semibold mb-2">Key Strengths:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Edits videos up to 2 hours long on the Business plan.</li>
+                        <li>Intuitive all-in-one solution with fast rendering.</li>
+                        <li>Extensive stock library with over 200 million assets.</li>
+                        <li>Integrates live streaming and video hosting.</li>
+                    </ul>
+                    <h4 class="font-semibold mb-2">Limitations:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Free plan is very restrictive (15-second edit limit).</li>
+                        <li>Distinguishes between "uploading any length" for hosting and plan-based "editing limits".</li>
+                        <li>Limited number of templates compared to other platforms.</li>
+                    </ul>
+                    <p class="text-sm italic"><strong>Ideal for:</strong> Live streams, promotional videos, webinars, and social media campaigns.</p>
+                  ` },
+                { id: 'klingai', name: 'Kling AI', persona: 'experimental', price: 6.99, length: 3, resolution: '1080p', aiAvatars: true, voiceCloning: true, multiLanguage: true, collaboration: false, apiAccess: true,
+                  summary: 'Crafts cinematic videos with an "extend" feature for building longer sequences.',
+                  details: `
+                    <p class="mb-4">Kling AI is recognized for its ability to craft cinematic videos. Its "extend" feature allows users to build clips up to three minutes by incrementally adding segments, maintaining visual continuity.</p>
+                    <h4 class="font-semibold mb-2">Key Strengths:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>High-quality, cinematic video generation with excellent motion.</li>
+                        <li>"Extend" feature is vital for constructing longer, cohesive narratives.</li>
+                        <li>Precise prompt control and realistic lip-sync capabilities.</li>
+                    </ul>
+                    <h4 class="font-semibold mb-2">Limitations:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Default shot length of 10 seconds requires manual "extending".</li>
+                        <li>Free version has long waiting times and watermarks.</li>
+                        <li>Limited range of style options and audio control.</li>
+                    </ul>
+                    <p class="text-sm italic"><strong>Ideal for:</strong> Filmmaker-friendly AI video, creative experimentation, and social content where cinematic quality is desired.</p>
+                  ` },
+                 { id: 'zebracat', name: 'Zebracat', persona: 'creator', price: 26, length: 5, resolution: '1080p', aiAvatars: true, voiceCloning: true, multiLanguage: true, collaboration: false, apiAccess: false,
+                  summary: 'AI-powered platform focused on creating engaging, viral-optimized social media videos.',
+                  details: `
+                    <p class="mb-4">Zebracat is geared towards rapid, high-volume production of shorter-form, engaging content. Its AI edits based on insights from millions of viral videos.</p>
+                    <h4 class="font-semibold mb-2">Key Strengths:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Extremely fast video creation, often within minutes.</li>
+                        <li>Built for non-editors with automated editing, music, and captions.</li>
+                        <li>Wide selection of AI voices and realistic avatars in 170+ languages.</li>
+                    </ul>
+                    <h4 class="font-semibold mb-2">Limitations:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Maximum video length of 5 minutes is shorter than others.</li>
+                        <li>Users have expressed desires for more customization and stock choices.</li>
+                        <li>Monthly credits system can be a concern for cost-effectiveness.</li>
+                    </ul>
+                    <p class="text-sm italic"><strong>Ideal for:</strong> TikTok, Instagram Reels, YouTube Shorts, advertisements, and podcast snippets.</p>
+                  ` },
+                 { id: 'visla', name: 'Visla', persona: 'business', price: 18, length: 50, resolution: '4K', aiAvatars: false, voiceCloning: false, multiLanguage: false, collaboration: true, apiAccess: false,
+                  summary: 'Script-based video creation with strong collaboration tools and stock footage integration.',
+                  details: `
+                    <p class="mb-4">Visla facilitates video production primarily from scripts, automatically finding suitable stock footage to match. It's a cost-effective solution for producing professional videos.</p>
+                    <h4 class="font-semibold mb-2">Key Strengths:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Generous free plan with 50 minutes/month of video time.</li>
+                        <li>AI-powered "Auto Cut" feature removes filler words and pauses.</li>
+                        <li>Strong collaboration features make it great for teams.</li>
+                        <li>Premium access to Storyblocks and Getty Images.</li>
+                    </ul>
+                    <h4 class="font-semibold mb-2">Limitations:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Limited to stock videos and English-only voiceovers.</li>
+                        <li>Credit consumption varies by project type, requiring careful budget management.</li>
+                    </ul>
+                    <p class="text-sm italic"><strong>Ideal for:</strong> Marketing, sales, training & learning, and corporate communications.</p>
+                  ` },
+                 { id: 'sora', name: 'OpenAI Sora', persona: 'experimental', price: 20, length: 0.33, resolution: '1080p', aiAvatars: false, voiceCloning: false, multiLanguage: false, collaboration: false, apiAccess: false,
+                  summary: 'Cutting-edge generation of high-quality, realistic short clips (max 20 seconds).',
+                  details: `
+                    <p class="mb-4">OpenAI Sora represents the state-of-the-art in AI video generation for visual quality, but its length is very limited. It reflects the current technical frontier of AI capabilities.</p>
+                    <h4 class="font-semibold mb-2">Key Strengths:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Produces visually stunning, premium cinematic videos from simple prompts.</li>
+                        <li>Integrated with ChatGPT for easy access.</li>
+                    </ul>
+                    <h4 class="font-semibold mb-2">Limitations:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Maximum length of 20 seconds is not suitable for long-form content.</li>
+                        <li>Struggles with maintaining object permanence and consistency.</li>
+                        <li>Accessibility is limited, often requiring high-tier subscriptions.</li>
+                    </ul>
+                    <p class="text-sm italic"><strong>Ideal for:</strong> Short, cinematic clips, creative experimentation, and generating quick visual concepts.</p>
+                  ` },
+                 { id: 'pika', name: 'Pika 2.2', persona: 'experimental', price: 35, length: 0.27, resolution: '1080p', aiAvatars: false, voiceCloning: false, multiLanguage: false, collaboration: false, apiAccess: false,
+                  summary: 'Emphasizes creative freedom and special effects for short, artistic clips (max 16 seconds).',
+                   details: `
+                    <p class="mb-4">Pika 2.2 prioritizes artistic expression and visual flair over narrative length, catering to creators who value visual innovation and experimentation in short bursts.</p>
+                    <h4 class="font-semibold mb-2">Key Strengths:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Exceptional creative freedom for personalization.</li>
+                        <li>Strong in generating special effects with high scene control.</li>
+                    </ul>
+                    <h4 class="font-semibold mb-2">Limitations:</h4>
+                    <ul class="list-disc list-inside mb-4 space-y-1 text-sm">
+                        <li>Maximum length of 16 seconds is very short for long-form needs.</li>
+                    </ul>
+                    <p class="text-sm italic"><strong>Ideal for:</strong> Creative experimentation and personalization where visual flair is prioritized.</p>
+                  ` }
+            ];
+
+            const personaRecs = {
+                business: "For robust enterprise features, extensive video length, and strong avatar/language support, top picks include <strong>Synthesia</strong> and <strong>DeepBrain AI</strong>. <strong>Visla</strong> is a great alternative for script-based team collaboration.",
+                creator: "For user-friendly interfaces, large stock media libraries, and significant video length, consider <strong>InVideo AI</strong> and <strong>FlexClip</strong>. For all-in-one marketing tools including hosting, look at <strong>Wave.video</strong>.",
+                experimental: "For cutting-edge visual quality and creative effects in short bursts, <strong>Kling AI</strong>, <strong>OpenAI Sora</strong>, and <strong>Pika 2.2</strong> are ideal. They are not suited for producing true long-form narratives."
+            };
+
+            const platformGrid = document.getElementById('platform-grid');
+            const personaFilters = document.getElementById('persona-filters');
+            const featureFilters = document.getElementById('feature-filters');
+            const recBanner = document.getElementById('recommendation-banner');
+            const recText = document.getElementById('recommendation-text');
+            
+            const modal = document.getElementById('platform-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+
+            let priceLengthChart = null;
+            let featureRadarChart = null;
+            let comparisonList = new Set();
+            
+            let filters = {
+                persona: 'all',
+                features: []
+            };
+
+            function getLengthDisplay(length) {
+                if (length >= 1000) return 'Unlimited';
+                if (length >= 60) return `${length / 60} hours`;
+                if (length < 1) return `${Math.round(length * 60)} sec`;
+                return `${length} min`;
+            }
+
+            function renderPlatforms() {
+                platformGrid.innerHTML = '';
+                const filteredPlatforms = platformsData.filter(p => {
+                    const personaMatch = filters.persona === 'all' || p.persona === filters.persona;
+                    const featureMatch = filters.features.every(feature => p[feature]);
+                    return personaMatch && featureMatch;
+                });
+
+                if (filteredPlatforms.length === 0) {
+                    platformGrid.innerHTML = `<p class="text-stone-500 md:col-span-2 lg:col-span-3 text-center">No platforms match the selected filters.</p>`;
+                } else {
+                    filteredPlatforms.forEach(p => {
+                        const card = document.createElement('div');
+                        card.className = 'bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col';
+                        card.innerHTML = `
+                            <div class="p-6 flex-grow">
+                                <h3 class="text-xl font-bold text-teal-700 mb-2">${p.name}</h3>
+                                <p class="text-sm text-stone-600 mb-4 h-10">${p.summary}</p>
+                                <div class="flex justify-between items-baseline text-sm mb-4 border-t border-b border-stone-100 py-3">
+                                    <span class="font-semibold text-stone-700">Max Length</span>
+                                    <span class="font-bold text-teal-600 text-base">${getLengthDisplay(p.length)}</span>
+                                </div>
+                                <div class="flex justify-between items-baseline text-sm">
+                                    <span class="font-semibold text-stone-700">Starts at</span>
+                                    <span class="font-bold text-teal-600 text-base">$${p.price}/mo</span>
+                                </div>
+                            </div>
+                            <div class="p-4 bg-stone-50 rounded-b-xl flex justify-between items-center mt-auto">
+                                <button data-id="${p.id}" class="details-btn text-sm font-semibold text-teal-600 hover:text-teal-800">View Details &rarr;</button>
+                                <label class="flex items-center space-x-2 cursor-pointer text-sm">
+                                    <input type="checkbox" data-id="${p.id}" class="platform-checkbox h-4 w-4 rounded border-stone-300 text-teal-600 focus:ring-teal-500">
+                                    <span>Compare</span>
+                                </label>
+                            </div>
+                        `;
+                        platformGrid.appendChild(card);
+                    });
+                }
+                 attachEventListeners();
+            }
+            
+            function attachEventListeners() {
+                document.querySelectorAll('.details-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const platformId = e.target.dataset.id;
+                        const platform = platformsData.find(p => p.id === platformId);
+                        modalTitle.textContent = platform.name;
+                        modalBody.innerHTML = platform.details;
+                        modal.classList.remove('opacity-0', 'pointer-events-none');
+                        modal.querySelector('.modal-content').classList.remove('scale-95');
+                    });
+                });
+                
+                document.querySelectorAll('.platform-checkbox').forEach(box => {
+                    if (comparisonList.has(box.dataset.id)) {
+                        box.checked = true;
+                    }
+                    box.addEventListener('change', (e) => {
+                        const platformId = e.target.dataset.id;
+                        if (e.target.checked) {
+                            if(comparisonList.size < 3) {
+                                comparisonList.add(platformId);
+                            } else {
+                                e.target.checked = false;
+                                alert("You can compare a maximum of 3 platforms at a time.");
+                            }
+                        } else {
+                            comparisonList.delete(platformId);
+                        }
+                        renderComparisonCharts();
+                    });
+                });
+            }
+            
+            function updateActivePersonaFilter(selectedBtn) {
+                 document.querySelectorAll('#persona-filters button').forEach(btn => {
+                    btn.classList.remove('active-filter');
+                });
+                selectedBtn.classList.add('active-filter');
+            }
+
+            personaFilters.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    filters.persona = e.target.dataset.persona;
+                    updateActivePersonaFilter(e.target);
+                    
+                    if(filters.persona !== 'all' && personaRecs[filters.persona]){
+                        recText.innerHTML = personaRecs[filters.persona];
+                        recBanner.classList.remove('hidden');
+                    } else {
+                        recBanner.classList.add('hidden');
+                    }
+                    
+                    renderPlatforms();
+                }
+            });
+            
+            featureFilters.addEventListener('change', () => {
+                filters.features = [];
+                document.querySelectorAll('#feature-filters input:checked').forEach(input => {
+                    filters.features.push(input.dataset.feature);
+                });
+                renderPlatforms();
+            });
+
+            function closeModal() {
+                 modal.classList.add('opacity-0', 'pointer-events-none');
+                 modal.querySelector('.modal-content').classList.add('scale-95');
+            }
+            
+            modalCloseBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if(e.target === modal) {
+                    closeModal();
+                }
+            });
+            
+            function renderComparisonCharts() {
+                const comparisonContent = document.getElementById('comparison-content');
+                const comparisonPlaceholder = document.getElementById('comparison-placeholder');
+                
+                if (comparisonList.size > 0) {
+                    comparisonContent.classList.remove('hidden');
+                    comparisonPlaceholder.classList.add('hidden');
+                } else {
+                    comparisonContent.classList.add('hidden');
+                    comparisonPlaceholder.classList.remove('hidden');
+                    return;
+                }
+
+                const comparisonData = platformsData.filter(p => comparisonList.has(p.id));
+
+                if (priceLengthChart) priceLengthChart.destroy();
+                const priceLengthCtx = document.getElementById('priceLengthChart').getContext('2d');
+                priceLengthChart = new Chart(priceLengthCtx, {
+                    type: 'bubble',
+                    data: {
+                        datasets: comparisonData.map(p => ({
+                            label: p.name,
+                            data: [{
+                                x: p.price,
+                                y: p.length < 1 ? 1 : p.length,
+                                r: p.resolution === '4K' ? 15 : (p.resolution === '1080p' ? 10 : 8)
+                            }],
+                            backgroundColor: getRandomColor(p.id),
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top' },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const platform = comparisonData[context.datasetIndex];
+                                        return `${platform.name}: $${context.parsed.x}/mo, ${getLengthDisplay(platform.length)}, ${platform.resolution}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                type: 'logarithmic',
+                                title: { display: true, text: 'Max Video Length (minutes, log scale)' },
+                                ticks: {
+                                    callback: function(value, index, ticks) {
+                                        return getLengthDisplay(value);
+                                    }
+                                }
+                            },
+                            x: {
+                                title: { display: true, text: 'Starting Price ($/month)' }
+                            }
+                        }
+                    }
+                });
+                
+                if (featureRadarChart) featureRadarChart.destroy();
+                const featureRadarCtx = document.getElementById('featureRadarChart').getContext('2d');
+                featureRadarChart = new Chart(featureRadarCtx, {
+                    type: 'radar',
+                    data: {
+                        labels: ['AI Avatars', 'Voice Cloning', 'Collaboration', 'Multi-Language', 'API Access'],
+                        datasets: comparisonData.map(p => ({
+                            label: p.name,
+                            data: [
+                                p.aiAvatars ? 5 : 1,
+                                p.voiceCloning ? 5 : 1,
+                                p.collaboration ? 5 : 1,
+                                p.multiLanguage ? 5 : 1,
+                                p.apiAccess ? 5 : 1,
+                            ],
+                            fill: true,
+                            backgroundColor: getRandomColor(p.id, 0.2),
+                            borderColor: getRandomColor(p.id, 1),
+                            pointBackgroundColor: getRandomColor(p.id, 1),
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top' },
+                        },
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                max: 5,
+                                ticks: { display: false },
+                                pointLabels: { font: { size: 11 } }
+                            }
+                        }
+                    }
+                });
+            }
+
+            const colorCache = {};
+            const colors = [
+                'rgba(13, 148, 136, %a%)', // teal-600
+                'rgba(249, 115, 22, %a%)', // orange-500
+                'rgba(59, 130, 246, %a%)', // blue-500
+            ];
+            let colorIndex = 0;
+
+            function getRandomColor(id, alpha = 1) {
+                if (!colorCache[id]) {
+                    colorCache[id] = colors[colorIndex % colors.length];
+                    colorIndex++;
+                }
+                return colorCache[id].replace('%a%', alpha);
+            }
+            
+            renderPlatforms();
+            renderComparisonCharts();
+        });
+    </script>
+</body>
+</html>
